@@ -156,3 +156,31 @@ footer p+p{margin-top:.4rem}
 .traza li.t-curso::before{background:var(--blanco);box-shadow:inset 0 0 0 3px var(--teal)}
 .t-pendiente .t-nombre,.t-omitido .t-nombre{color:var(--acero);font-weight:500}
 .envio.aviso-suave{color:#8a5f00}
+
+/* Página de trazabilidad: línea de tiempo por solicitud */
+.barra nav a[aria-current=page]{color:var(--teal-hondo);font-weight:700;box-shadow:0 2px 0 var(--teal)}
+.trz{max-width:60rem;margin:0 auto;padding:clamp(2rem,5vw,3.5rem) clamp(1rem,5vw,4rem) 4rem}
+.trz h1{max-width:none;font-size:clamp(2rem,4.5vw,3.2rem)}
+.trz>p{max-width:66ch;margin-top:.8rem;color:var(--grafito)}
+.trz-controles{display:grid;grid-template-columns:minmax(0,1.4fr) minmax(0,1fr);gap:1rem;align-items:end;margin:1.75rem 0 .5rem}
+.trz-buscar{display:flex;gap:.5rem;align-items:end}
+.trz-buscar label{flex:1;margin:0}
+.trz-controles label{margin:0}
+.trz-buscar .btn{padding:.68rem 1rem;font-size:.95rem}
+.trz-estado{min-height:1.4rem;font-weight:600;margin:.75rem 0 0}
+.linea{list-style:none;margin:1.5rem 0 0;padding:0;border-left:2px solid var(--acero)}
+.linea li{position:relative;padding:0 0 1.6rem 1.6rem}
+.linea li:last-child{padding-bottom:.2rem}
+.linea li::before{content:"";position:absolute;left:-8px;top:.3rem;width:14px;height:14px;border-radius:50%;background:var(--teal);box-shadow:0 0 0 3px var(--niebla)}
+.linea li.l-fallo::before{background:var(--error)}
+.linea li.l-aviso::before{background:#b07a00}
+.l-nombre{display:block;font-weight:700;font-size:1.08rem}
+.l-fallo .l-nombre{color:var(--error)}
+.l-sistema{display:block;color:var(--acero)}
+.l-hora{font-variant-numeric:tabular-nums;color:var(--grafito)}
+.l-delta{color:var(--acero);font-size:.88rem;margin-left:.35rem}
+.l-detalle{display:block;font-size:.92rem;color:var(--grafito)}
+.l-fallo .l-detalle{color:var(--error)}
+.chip{display:inline-block;margin-left:.4rem;padding:.05rem .55rem;border:1px solid var(--acero);border-radius:999px;font-size:.8rem;color:var(--grafito);vertical-align:1px}
+.chip-ej{border-style:dashed}
+@media (max-width:640px){.trz-controles{grid-template-columns:1fr}}

@@ -220,6 +220,7 @@ if (typeof document !== 'undefined') {
 
   form.addEventListener('submit', async (ev) => {
     ev.preventDefault();
+    const horas = { formulario: new Date().toISOString() };
     const aviso = $('#aviso');
     aviso.textContent = '';
     if (!form.reportValidity()) return;
@@ -238,9 +239,11 @@ if (typeof document !== 'undefined') {
       };
     } else {
       const d = leer();
+      horas.calculo = new Date().toISOString();
       if (!d.btu) { aviso.textContent = 'Escribe las medidas del espacio para calcular la carga.'; return; }
       const segmento = modulo === 'industrial' ? 'Industrial' : 'Residencial';
       opciones = sugerir(equipos, segmento, d.btu, modulo === 'industrial' ? d.uso : null);
+      horas.equipos = new Date().toISOString();
       payload.medidas = { largo: d.largo, ancho: d.ancho, alto: d.alto, volumen: d.volumen, porVolumen: d.porVolumen };
       payload.uso = modulo === 'industrial' ? USOS_IND[d.uso].label : ESPACIOS_RES[d.espacio].label;
       payload.personas = d.personas;
@@ -251,6 +254,8 @@ if (typeof document !== 'undefined') {
       }));
       pintarResultado(d, opciones);
     }
+
+    payload.horas = horas;
 
     // Seguimiento: cada paso del recorrido de la solicitud, con su resultado y un código si falla.
     const cotiza = modulo !== 'mantenimiento';
@@ -306,6 +311,18 @@ if (typeof document !== 'undefined') {
       estadoEnvio.className = 'envio error';
     }
     boton.disabled = false;
+
+    // Copia local de la traza para la página de trazabilidad (sirve aunque la bitácora de Sheets no se haya escrito).
+    const id = folio || 'SIN-FOLIO-' + Date.now();
+    const completa = [{ paso: 'formulario', ok: true, hora: horas.formulario }]
+      .concat(pasos.slice(0, primeroServidor).map((p) => ({ paso: p.paso, ok: p.estado !== 'fallo', aviso: p.estado === 'aviso', codigo: p.codigo, detalle: p.detalle, hora: horas[p.paso] })))
+      .concat(j && j.traza ? j.traza : [{ paso: 'validacion', ok: false, codigo, detalle: pasos[primeroServidor].detalle, hora: new Date().toISOString() }]);
+    try {
+      const guardadas = JSON.parse(localStorage.getItem('juanitos_trazas') || '[]').filter((t) => t.id !== id);
+      guardadas.unshift({ id, folio, tipo: modulo, ok: !!(j && j.ok), pasos: completa });
+      localStorage.setItem('juanitos_trazas', JSON.stringify(guardadas.slice(0, 15)));
+    } catch (e) { /* almacenamiento no disponible */ }
+    estadoEnvio.insertAdjacentHTML('beforeend', ` <a href="/trazabilidad.html?folio=${encodeURIComponent(id)}">Ver la trazabilidad completa</a>`);
   });
 
   const TELEFONO = '55 22 23 24 25';

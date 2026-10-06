@@ -50,14 +50,22 @@ module.exports = async (req, res) => {
   const d = new Date();
   lead.folio = `JC-${String(d.getFullYear()).slice(2)}${String(d.getMonth() + 1).padStart(2, '0')}${String(d.getDate()).padStart(2, '0')}-${Math.random().toString(36).slice(2, 6).toUpperCase()}`;
 
-  const traza = [{ paso: 'validacion', ok: true, detalle: 'Datos completos' }];
+  // Timestamps: browser steps (sent by the page, accepted only if within the last hour) + this function's own.
+  const ahora = () => new Date().toISOString();
+  const iso = (v) => { const t = new Date(v); return isNaN(t) || Math.abs(Date.now() - t) > 3600e3 ? null : t.toISOString(); };
+  const horas = b.horas || {};
+  const previos = ['formulario', 'calculo', 'equipos']
+    .filter((k) => k === 'formulario' || lead.tipo !== 'mantenimiento')
+    .map((k) => ({ paso: k, hora: iso(horas[k]) })).filter((p) => p.hora);
+  const traza = [{ paso: 'validacion', ok: true, detalle: 'Datos completos', hora: ahora() }, { paso: 'folio', ok: true, detalle: lead.folio, hora: ahora() }];
+  previos.push({ paso: 'validacion', hora: traza[0].hora }, { paso: 'folio', hora: traza[1].hora, detalle: lead.folio });
   const teniaFoto = !!(lead.mantenimiento && lead.mantenimiento.foto);
   const responder = (status, ok, interno) => {
-    const codigo = (traza.find((t) => !t.ok) || {}).codigo;
+    const codigo = (traza.find((t) => !t.ok && t.paso !== 'aviso') || {}).codigo;
     console.log(JSON.stringify({ evento: 'lead', folio: lead.folio, tipo: lead.tipo, ok, codigo, traza, interno }));
     return res.status(status).json({ ok, folio: lead.folio, codigo, traza });
   };
-  const falla = (codigo, detalle) => traza.push({ paso: 'registro', ok: false, codigo, detalle });
+  const falla = (codigo, detalle) => traza.push({ paso: 'registro', ok: false, codigo, detalle, hora: ahora() });
 
   const url = process.env.APPS_SCRIPT_URL;
   if (!url) { falla('E-CFG', 'El servidor no tiene configurada la conexión con la hoja de cálculo.'); return responder(503, false, 'APPS_SCRIPT_URL missing'); }
@@ -68,7 +76,7 @@ module.exports = async (req, res) => {
     const r = await fetch(url, {
       method: 'POST', redirect: 'follow', signal: AbortSignal.timeout(25000),
       headers: { 'Content-Type': 'text/plain;charset=utf-8' }, // Apps Script reads the raw body
-      body: JSON.stringify({ token: process.env.SHEETS_TOKEN || '', lead }),
+      body: JSON.stringify({ token: process.env.SHEETS_TOKEN || '', lead, previos }),
     });
     texto = await r.text();
   } catch (err) {
@@ -92,12 +100,13 @@ module.exports = async (req, res) => {
   const hojaOk = !!(p.hoja && p.hoja.ok);
   if (teniaFoto) {
     const ok = !(p.foto && p.foto.ok === false);
-    traza.push({ paso: 'foto', ok, codigo: ok ? undefined : 'E-FOTO', detalle: ok ? 'Foto guardada' : 'La foto no se pudo guardar; el resto de la solicitud sigue su curso.' });
+    traza.push({ paso: 'foto', ok, codigo: ok ? undefined : 'E-FOTO', detalle: ok ? 'Foto guardada' : 'La foto no se pudo guardar; el resto de la solicitud sigue su curso.', hora: (p.foto && p.foto.hora) || ahora() });
   }
-  traza.push({ paso: 'registro', ok: hojaOk, codigo: hojaOk ? undefined : 'E-HOJA', detalle: hojaOk ? 'Solicitud guardada' : 'No se pudo escribir en la hoja de cálculo.', ms });
+  traza.push({ paso: 'registro', ok: hojaOk, codigo: hojaOk ? undefined : 'E-HOJA', detalle: hojaOk ? 'Solicitud guardada' : 'No se pudo escribir en la hoja de cálculo.', ms, hora: (p.hoja && p.hoja.hora) || ahora() });
   if (p.correo_cliente) {
     const ok = !!p.correo_cliente.ok;
-    traza.push({ paso: 'correo', ok, codigo: ok ? undefined : 'E-CORREO', detalle: ok ? 'Enviado a ' + lead.correo : 'El correo de confirmación no pudo enviarse.' });
+    traza.push({ paso: 'correo', ok, codigo: ok ? undefined : 'E-CORREO', detalle: ok ? 'Enviado a ' + lead.correo : 'El correo de confirmación no pudo enviarse.', hora: p.correo_cliente.hora || ahora() });
   }
+  if (p.correo_ventas) traza.push({ paso: 'aviso', ok: !!p.correo_ventas.ok, codigo: p.correo_ventas.ok ? undefined : 'E-AVISO', detalle: p.correo_ventas.ok ? 'Aviso enviado a ventas' : 'El aviso interno a ventas no salió.', hora: p.correo_ventas.hora || ahora() });
   return responder(hojaOk ? 200 : 502, hojaOk, j.pasos || j.error);
 };

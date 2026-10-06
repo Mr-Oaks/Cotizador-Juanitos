@@ -1,0 +1,116 @@
+<!doctype html>
+<html lang="es-MX">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Trazabilidad de la solicitud | Juanitos Corporation</title>
+<link href="https://fonts.googleapis.com/css2?family=Archivo:wdth,wght@62..125,400..800&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="/styles.css">
+</head>
+<body>
+<header class="barra">
+  <a class="marca" href="/">Juanitos <span>Corporation</span></a>
+  <nav aria-label="Principal">
+    <a href="/#cotizar">Cotizar</a>
+    <a href="/#equipos">Equipos</a>
+    <a href="/trazabilidad.html" aria-current="page">Trazabilidad</a>
+    <a href="/estado.html">Estado del sistema</a>
+  </nav>
+</header>
+<main class="trz">
+  <h1>Trazabilidad de la solicitud</h1>
+  <p>Cada cotización o solicitud de mantenimiento deja una bitácora con la hora de cada paso y el sistema que lo ejecutó. Si algo falla, aquí se ve en qué paso se detuvo y con qué código.</p>
+
+  <div class="trz-controles">
+    <label>Solicitud<select id="sel"></select></label>
+    <form class="trz-buscar" id="buscar">
+      <label>Buscar por folio<input id="folio" placeholder="JC-261006-AB12" maxlength="14" autocomplete="off"></label>
+      <button class="btn" type="submit">Buscar</button>
+    </form>
+  </div>
+  <p class="trz-estado" id="estado" role="status"></p>
+  <ol class="linea" id="linea"></ol>
+</main>
+<script>
+const $ = (s) => document.querySelector(s);
+const esc = (s) => String(s ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+const PASOS = {
+  formulario: ['Formulario recibido', 'Landing en Vercel'],
+  calculo: ['Carga térmica calculada', 'Navegador del cliente'],
+  equipos: ['Tres opciones de equipo elegidas', 'Catálogo de equipos'],
+  validacion: ['Datos validados', 'Función de servidor'],
+  folio: ['Folio asignado', 'Función de servidor'],
+  foto: ['Foto guardada', 'Google Drive'],
+  registro: ['Fila escrita en Leads', 'Google Sheets'], hoja: ['Fila escrita en Leads', 'Google Sheets'],
+  correo: ['Correo de confirmación enviado', 'Gmail'], correo_cliente: ['Correo de confirmación enviado', 'Gmail'],
+  aviso: ['Aviso enviado a ventas', 'Gmail'], correo_ventas: ['Aviso enviado a ventas', 'Gmail'],
+};
+const FALLA = { validacion: 'Datos rechazados', foto: 'Foto no guardada', registro: 'Fila no escrita en Leads', hoja: 'Fila no escrita en Leads',
+  correo: 'Correo de confirmación no enviado', correo_cliente: 'Correo de confirmación no enviado', aviso: 'Aviso a ventas no enviado', correo_ventas: 'Aviso a ventas no enviado', equipos: 'Sin equipos para esta capacidad' };
+const TIPOS = { residencial: 'Cotización residencial', industrial: 'Cotización industrial', mantenimiento: 'Mantenimiento' };
+
+let locales = [];
+try { locales = JSON.parse(localStorage.getItem('juanitos_trazas') || '[]'); } catch (e) {}
+
+function ejemplo() {
+  const t0 = Date.now() - 90000, d = [0, 4, 9, 212, 226, 1480, 2390, 2910];
+  return ['formulario', 'calculo', 'equipos', 'validacion', 'folio', 'registro', 'correo', 'aviso'].map((paso, i) => ({ paso, ok: true, hora: new Date(t0 + d[i]).toISOString() }));
+}
+
+function hora(iso) {
+  const d = new Date(iso);
+  if (isNaN(d)) return '';
+  const p = (n, l = 2) => String(n).padStart(l, '0');
+  return `${p(d.getHours())}:${p(d.getMinutes())}:${p(d.getSeconds())}.${p(d.getMilliseconds(), 3)}`;
+}
+
+function pintar(pasos, origen) {
+  const orden = [...pasos].sort((a, b) => new Date(a.hora) - new Date(b.hora));
+  $('#linea').innerHTML = orden.map((p, i) => {
+    const n = PASOS[p.paso] || [p.paso, ''];
+    const previo = i ? new Date(p.hora) - new Date(orden[i - 1].hora) : null;
+    const delta = previo === null || isNaN(previo) ? '' : `<span class="l-delta">+${previo < 1000 ? previo + ' ms' : (previo / 1000).toFixed(1) + ' s'}</span>`;
+    return `<li class="${p.ok ? (p.aviso ? 'l-aviso' : '') : 'l-fallo'}">
+      <span class="l-nombre">${esc(p.ok ? n[0] : (FALLA[p.paso] || n[0] + ': falló'))}${p.codigo ? ' · ' + esc(p.codigo) : ''}</span>
+      <span class="l-sistema">${esc(n[1])}</span>
+      <span class="l-hora">${hora(p.hora)}</span>${delta}<span class="chip ${origen === 'ejemplo' ? 'chip-ej' : ''}">${origen}</span>
+      ${!p.ok || p.aviso ? `<span class="l-detalle">${esc(p.detalle || 'El detalle técnico está en la pestaña Bitacora de la hoja.')}</span>` : ''}
+    </li>`;
+  }).join('');
+}
+
+async function mostrar(id) {
+  const est = $('#estado');
+  est.textContent = '';
+  if (id === 'EJEMPLO') { pintar(ejemplo(), 'ejemplo'); est.textContent = 'Recorrido de ejemplo con horas simuladas. Envía una cotización para ver una real.'; return; }
+  const local = locales.find((t) => t.id === id);
+  if (local) {
+    pintar(local.pasos, 'este navegador');
+    const falla = local.pasos.find((p) => !p.ok);
+    est.textContent = falla ? `La solicitud se detuvo en "${(PASOS[falla.paso] || [falla.paso])[0]}"${falla.codigo ? ' con el código ' + falla.codigo : ''}.` : 'La solicitud completó todos los pasos.';
+    return;
+  }
+  est.textContent = 'Consultando la bitácora…';
+  $('#linea').innerHTML = '';
+  try {
+    const r = await fetch('/api/traza?folio=' + encodeURIComponent(id));
+    const j = await r.json();
+    if (!j.ok) { est.textContent = `No se pudo consultar la bitácora (${j.codigo}): ${j.error}`; return; }
+    if (!j.pasos.length) { est.textContent = `No hay registros del folio ${id} en la bitácora. Si la solicitud falló antes de llegar a Google Sheets, solo queda en los registros de Vercel.`; return; }
+    pintar(j.pasos, 'bitácora');
+    const falla = j.pasos.find((p) => !p.ok);
+    est.textContent = falla ? `La solicitud ${id} tuvo una falla en "${(PASOS[falla.paso] || [falla.paso])[0]}".` : `La solicitud ${id} completó todos los pasos.`;
+  } catch (e) { est.textContent = 'El servidor no respondió. Revisa el estado del sistema.'; }
+}
+
+const sel = $('#sel');
+sel.innerHTML = locales.map((t) => `<option value="${esc(t.id)}">${esc(t.folio || 'Sin folio')}: ${TIPOS[t.tipo] || ''}${t.ok ? '' : ' (con falla)'}</option>`).join('') + '<option value="EJEMPLO">Recorrido de ejemplo</option>';
+sel.onchange = () => mostrar(sel.value);
+$('#buscar').onsubmit = (ev) => { ev.preventDefault(); const f = $('#folio').value.trim().toUpperCase(); if (f) mostrar(f); };
+
+const pedido = new URLSearchParams(location.search).get('folio');
+if (pedido && locales.some((t) => t.id === pedido)) sel.value = pedido;
+mostrar(pedido || sel.value);
+</script>
+</body>
+</html>

@@ -40,6 +40,12 @@ const miles = (n) => Number(n || 0).toLocaleString('en-US');
 function doGet(e) {
   if (!autorizado(e.parameter.token)) return json({ ok: false, error: 'unauthorized' });
   try {
+    if (e.parameter.action === 'traza') {
+      const hoja = libro().getSheetByName('Bitacora'), folio = String(e.parameter.folio || '');
+      const filas = hoja ? hoja.getDataRange().getValues().filter((f) => f[1] === folio && !(f[2] === 'foto' && f[4] === 'sin foto')) : [];
+      // Sin la columna "detalle": puede contener el correo del cliente.
+      return json({ ok: true, traza: true, pasos: filas.map((f) => ({ paso: f[2], ok: f[3] === 'OK', hora: f[0] instanceof Date ? f[0].toISOString() : String(f[0]), ms: f[5] })) });
+    }
     if (e.parameter.action === 'ping') {
       const doc = libro(), eq = doc.getSheetByName(CONFIG.HOJA_EQUIPOS);
       return json({ ok: true, ping: true, hojas: { equipos: !!eq, leads: !!doc.getSheetByName(CONFIG.HOJA_LEADS) },
@@ -60,11 +66,12 @@ function leerEquipos() {
 }
 
 function doPost(e) {
-  let lead;
+  let lead, previos;
   try {
     const body = JSON.parse(e.postData.contents);
     if (!autorizado(body.token)) return json({ ok: false, codigo: 'E-TOKEN', error: 'unauthorized' });
     lead = body.lead;
+    previos = body.previos;
   } catch (err) {
     return json({ ok: false, codigo: 'E-BODY', error: String(err) });
   }
@@ -79,24 +86,26 @@ function doPost(e) {
   pasos.correo_ventas = paso(() => { enviarCorreos(lead, fotoUrl, 'ventas'); return 'enviado'; });
 
   if (pasos.hoja.ok && !pasos.correo_cliente.ok) marcarEstatus(lead.folio, 'Correo NO enviado: usar menú Juanitos');
-  bitacora(lead.folio, pasos);
+  bitacora(lead.folio, pasos, previos);
   return json({ ok: pasos.hoja.ok, folio: lead.folio, pasos: pasos });
 }
 
 function paso(fn) {
-  const t = Date.now();
-  try { return { ok: true, detalle: String(fn() || ''), ms: Date.now() - t }; }
-  catch (err) { return { ok: false, error: String(err), ms: Date.now() - t }; }
+  const t = Date.now(), hora = new Date().toISOString();
+  try { return { ok: true, hora: hora, detalle: String(fn() || ''), ms: Date.now() - t }; }
+  catch (err) { return { ok: false, hora: hora, error: String(err), ms: Date.now() - t }; }
 }
 
 /** Una fila por paso en la pestaña Bitacora: sirve para ver dónde se rompió una solicitud. */
-function bitacora(folio, pasos) {
+function bitacora(folio, pasos, previos) {
   try {
     const doc = libro();
     let hoja = doc.getSheetByName('Bitacora');
     if (!hoja) { hoja = doc.insertSheet('Bitacora'); hoja.appendRow(['fecha', 'folio', 'paso', 'resultado', 'detalle', 'ms']); hoja.setFrozenRows(1); }
-    const ahora = new Date();
-    const filas = Object.keys(pasos).map((k) => [ahora, folio, k, pasos[k].ok ? 'OK' : 'FALLÓ', celda(pasos[k].ok ? pasos[k].detalle : pasos[k].error), pasos[k].ms]);
+    // previos: pasos que ocurrieron antes de llegar aquí (navegador y servidor de Vercel), con su hora.
+    const antes = (Array.isArray(previos) ? previos : []).slice(0, 8).filter((p) => p && /^[a-z_]{3,20}$/.test(p.paso))
+      .map((p) => [new Date(p.hora), folio, p.paso, 'OK', celda(String(p.detalle || '').slice(0, 100)), '']);
+    const filas = antes.concat(Object.keys(pasos).map((k) => [new Date(pasos[k].hora), folio, k, pasos[k].ok ? 'OK' : 'FALLÓ', celda(pasos[k].ok ? pasos[k].detalle : pasos[k].error), pasos[k].ms]));
     hoja.getRange(hoja.getLastRow() + 1, 1, filas.length, 6).setValues(filas);
   } catch (err) { console.error('Bitacora: ' + err); }
 }

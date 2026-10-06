@@ -203,3 +203,7 @@ Steps in Apps Script run independently: a failed email no longer discards the le
 | `A-CATALOGO` | Warning: options came from the bundled fallback catalog | Sheet unreachable or `Equipos` tab empty (the catalog is cached up to 5 minutes) |
 
 After updating `Code.gs`, publish it with *Deploy > Manage deployments > Edit > New version*; otherwise the old code keeps running.
+
+### Traceability page
+
+`/trazabilidad.html` shows one request as a timeline: step, system that ran it (browser, Vercel function, Google Sheets, Drive, Gmail), time with milliseconds and the gap from the previous step. Requests sent from the same browser are listed automatically (kept in `localStorage`, so the trail survives even when Sheets was unreachable). Any other request can be looked up by folio through `/api/traza`, which reads the `Bitacora` tab and returns steps and times only, never customer data. A sample run labeled "ejemplo" is shown when there is nothing to display.
