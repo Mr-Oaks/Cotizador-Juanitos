@@ -39,7 +39,14 @@ const miles = (n) => Number(n || 0).toLocaleString('en-US');
 
 function doGet(e) {
   if (!autorizado(e.parameter.token)) return json({ ok: false, error: 'unauthorized' });
-  try { return json({ ok: true, equipos: leerEquipos() }); } catch (err) { return json({ ok: false, error: String(err) }); }
+  try {
+    if (e.parameter.action === 'ping') {
+      const doc = libro(), eq = doc.getSheetByName(CONFIG.HOJA_EQUIPOS);
+      return json({ ok: true, ping: true, hojas: { equipos: !!eq, leads: !!doc.getSheetByName(CONFIG.HOJA_LEADS) },
+        equipos: eq ? Math.max(0, eq.getLastRow() - 1) : 0, cuota_correo: MailApp.getRemainingDailyQuota() });
+    }
+    return json({ ok: true, equipos: leerEquipos() });
+  } catch (err) { return json({ ok: false, error: String(err) }); }
 }
 
 function leerEquipos() {
@@ -53,18 +60,53 @@ function leerEquipos() {
 }
 
 function doPost(e) {
+  let lead;
   try {
     const body = JSON.parse(e.postData.contents);
-    if (!autorizado(body.token)) return json({ ok: false, error: 'unauthorized' });
-    const lead = body.lead;
-    const fotoUrl = guardarFoto(lead);
-    if (lead.mantenimiento) delete lead.mantenimiento.foto;
-    guardarLead(lead, fotoUrl);
-    enviarCorreos(lead, fotoUrl);
-    return json({ ok: true, folio: lead.folio });
+    if (!autorizado(body.token)) return json({ ok: false, codigo: 'E-TOKEN', error: 'unauthorized' });
+    lead = body.lead;
   } catch (err) {
-    return json({ ok: false, error: String(err) });
+    return json({ ok: false, codigo: 'E-BODY', error: String(err) });
   }
+
+  // Cada paso corre por separado: si uno falla, los demás siguen y queda registrado cuál fue.
+  const pasos = {};
+  let fotoUrl = '';
+  pasos.foto = paso(() => { fotoUrl = guardarFoto(lead); return fotoUrl ? 'guardada' : 'sin foto'; });
+  if (lead.mantenimiento) delete lead.mantenimiento.foto;
+  pasos.hoja = paso(() => { guardarLead(lead, fotoUrl); return 'fila agregada'; });
+  pasos.correo_cliente = paso(() => { enviarCorreos(lead, fotoUrl, 'cliente'); return lead.correo; });
+  pasos.correo_ventas = paso(() => { enviarCorreos(lead, fotoUrl, 'ventas'); return 'enviado'; });
+
+  if (pasos.hoja.ok && !pasos.correo_cliente.ok) marcarEstatus(lead.folio, 'Correo NO enviado: usar menú Juanitos');
+  bitacora(lead.folio, pasos);
+  return json({ ok: pasos.hoja.ok, folio: lead.folio, pasos: pasos });
+}
+
+function paso(fn) {
+  const t = Date.now();
+  try { return { ok: true, detalle: String(fn() || ''), ms: Date.now() - t }; }
+  catch (err) { return { ok: false, error: String(err), ms: Date.now() - t }; }
+}
+
+/** Una fila por paso en la pestaña Bitacora: sirve para ver dónde se rompió una solicitud. */
+function bitacora(folio, pasos) {
+  try {
+    const doc = libro();
+    let hoja = doc.getSheetByName('Bitacora');
+    if (!hoja) { hoja = doc.insertSheet('Bitacora'); hoja.appendRow(['fecha', 'folio', 'paso', 'resultado', 'detalle', 'ms']); hoja.setFrozenRows(1); }
+    const ahora = new Date();
+    const filas = Object.keys(pasos).map((k) => [ahora, folio, k, pasos[k].ok ? 'OK' : 'FALLÓ', celda(pasos[k].ok ? pasos[k].detalle : pasos[k].error), pasos[k].ms]);
+    hoja.getRange(hoja.getLastRow() + 1, 1, filas.length, 6).setValues(filas);
+  } catch (err) { console.error('Bitacora: ' + err); }
+}
+
+function marcarEstatus(folio, texto) {
+  try {
+    const hoja = libro().getSheetByName(CONFIG.HOJA_LEADS);
+    const celdaFolio = hoja.getRange(2, COLUMNAS_LEADS.indexOf('folio') + 1, Math.max(1, hoja.getLastRow() - 1), 1).createTextFinder(folio).matchEntireCell(true).findNext();
+    if (celdaFolio) hoja.getRange(celdaFolio.getRow(), COLUMNAS_LEADS.indexOf('estatus') + 1).setValue(texto);
+  } catch (err) { console.error('marcarEstatus: ' + err); }
 }
 
 function guardarFoto(lead) {
@@ -96,7 +138,8 @@ function guardarLead(lead, fotoUrl) {
   hoja.appendRow(fila.map(celda));
 }
 
-function enviarCorreos(lead, fotoUrl, soloCliente) {
+// destino: 'cliente' (o true) = solo al cliente · 'ventas' = solo el aviso interno · vacío = ambos
+function enviarCorreos(lead, fotoUrl, destino) {
   const ventas = prop('CORREO_VENTAS') || Session.getEffectiveUser().getEmail();
   const esMant = lead.tipo === 'mantenimiento';
   const asunto = (esMant ? 'Recibimos tu solicitud de mantenimiento ' : 'Tu cotización de aire acondicionado ') + lead.folio;
@@ -129,8 +172,8 @@ function enviarCorreos(lead, fotoUrl, soloCliente) {
     '<p style="color:#7d8b8d;font-size:13px">Cobertura: ' + CONFIG.COBERTURA + '. Fuera de esta zona el servicio se cotiza por separado.</p>' +
     '<p>Gracias por confiar en ' + CONFIG.EMPRESA + '.</p></div></div>';
 
-  MailApp.sendEmail({ to: lead.correo, subject: asunto, htmlBody: html, name: CONFIG.EMPRESA, replyTo: ventas });
-  if (soloCliente) return;
+  if (destino !== 'ventas') MailApp.sendEmail({ to: lead.correo, subject: asunto, htmlBody: html, name: CONFIG.EMPRESA, replyTo: ventas });
+  if (destino === true || destino === 'cliente') return;
   MailApp.sendEmail({
     to: ventas, subject: 'Nuevo lead ' + lead.tipo + ' ' + lead.folio + ' · ' + lead.nombre, name: 'Cotizador ' + CONFIG.EMPRESA, replyTo: lead.correo,
     htmlBody: '<p>' + esc(lead.nombre) + ' · ' + esc(lead.correo) + ' · ' + esc(lead.telefono || 'sin teléfono') + '<br>' + esc(lead.colonia) + ', ' + esc(lead.estado) + '</p>' +
