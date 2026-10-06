@@ -1,0 +1,176 @@
+<!doctype html>
+<html lang="es-MX">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Juanitos Corporation | Cotiza tu aire acondicionado</title>
+<meta name="description" content="Calcula los BTU que necesita tu casa, comercio o industria y recibe tres opciones de equipo. Instalación y mantenimiento de aire acondicionado.">
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><rect width='100' height='100' rx='18' fill='%231f7a78'/><text x='50' y='70' font-size='62' font-family='Arial' font-weight='700' text-anchor='middle' fill='white'>J</text></svg>">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Archivo:wdth,wght@62..125,400..800&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="/styles.css">
+</head>
+<body>
+<header class="barra">
+  <a class="marca" href="#inicio">Juanitos <span>Corporation</span></a>
+  <nav aria-label="Principal">
+    <a href="#cotizar">Cotizar</a>
+    <a href="#equipos">Equipos</a>
+    <a href="#proceso">Cómo trabajamos</a>
+    <a href="#cotizar" data-ir="mantenimiento">Mantenimiento</a>
+  </nav>
+</header>
+
+<main id="inicio">
+  <section class="hero">
+    <h1>Dinos cuánto mide tu espacio y te decimos qué aire acondicionado le queda.</h1>
+    <p>En Juanitos Corporation instalamos, mantenemos y reparamos aire acondicionado para casas, comercios e industria. Antes de vender un equipo calculamos la carga térmica: un equipo chico nunca alcanza la temperatura y uno sobrado gasta de más. Aquí haces ese cálculo en un minuto y recibes tres opciones con precio.</p>
+  </section>
+
+  <section id="cotizar" class="cotizar">
+    <div class="panel">
+      <div class="tabs" role="tablist" aria-label="Tipo de servicio">
+        <button type="button" role="tab" data-modulo="residencial" aria-selected="true">Residencial</button>
+        <button type="button" role="tab" data-modulo="industrial" aria-selected="false">Industrial y comercial</button>
+        <button type="button" role="tab" data-modulo="mantenimiento" aria-selected="false">Mantenimiento</button>
+      </div>
+
+      <form id="cotizador" novalidate>
+        <fieldset data-solo="residencial industrial">
+          <legend>El espacio</legend>
+          <div class="modo">
+            <label><input type="radio" name="modo" value="medidas" checked> Tengo las medidas</label>
+            <label><input type="radio" name="modo" value="volumen"> Ya sé los metros cúbicos</label>
+          </div>
+          <div class="fila tres" id="campos-medidas">
+            <label>Largo (m)<input id="largo" type="number" inputmode="decimal" min="0.5" step="0.1" required placeholder="4.0"></label>
+            <label>Ancho (m)<input id="ancho" type="number" inputmode="decimal" min="0.5" step="0.1" required placeholder="3.5"></label>
+            <label>Alto (m)<input id="alto" type="number" inputmode="decimal" min="1.8" step="0.1" required value="2.5"></label>
+          </div>
+          <div class="fila" id="campo-volumen" hidden>
+            <label>Volumen (m³)<input id="volumen" type="number" inputmode="decimal" min="1" step="0.1" required placeholder="35"></label>
+          </div>
+        </fieldset>
+
+        <fieldset data-solo="residencial">
+          <legend>Cómo se usa</legend>
+          <div class="fila dos">
+            <label>Tipo de espacio<select id="espacio"></select></label>
+            <label>Personas que lo ocupan<input id="personas-res" type="number" min="1" max="30" value="2"></label>
+          </div>
+          <label class="check"><input id="sol" type="checkbox"> Le pega el sol directo por la tarde</label>
+          <label class="check"><input id="techo" type="checkbox"> Es último piso o tiene techo de lámina</label>
+        </fieldset>
+
+        <fieldset data-solo="industrial">
+          <legend>Cómo se usa</legend>
+          <label>Tipo de recinto<select id="uso"></select></label>
+          <div class="fila dos">
+            <label>Personas en ocupación máxima<input id="personas-ind" type="number" min="0" value="10"></label>
+            <label>Equipo e iluminación (kW) <small>opcional</small><input id="kw" type="number" min="0" step="0.5" placeholder="0"></label>
+          </div>
+        </fieldset>
+
+        <fieldset data-solo="mantenimiento">
+          <legend>El equipo</legend>
+          <div class="modo">
+            <label><input type="radio" name="segmento" value="Residencial" checked> Equipo residencial</label>
+            <label><input type="radio" name="segmento" value="Industrial"> Equipo industrial o comercial</label>
+          </div>
+          <label>Marca y modelo<input id="modelo" required maxlength="120" placeholder="Viene en la placa del equipo, por ejemplo Mirage X5 CXF121"></label>
+          <label>¿Qué problema presenta?<textarea id="problema" required rows="4" maxlength="1500" placeholder="No enfría, gotea, hace ruido, marca un código de error…"></textarea></label>
+          <label>Foto del equipo o de la falla <small>opcional</small><input id="foto" type="file" accept="image/*"></label>
+        </fieldset>
+
+        <fieldset>
+          <legend>Dónde y a quién</legend>
+          <div class="fila dos">
+            <label>Nombre<input id="nombre" required maxlength="100" autocomplete="name"></label>
+            <label>Correo<input id="correo" type="email" required maxlength="120" autocomplete="email"></label>
+          </div>
+          <div class="fila dos">
+            <label>Estado<select id="estado" required><option value="">Elige un estado</option></select></label>
+            <label>Colonia<input id="colonia" required maxlength="100"></label>
+          </div>
+          <label>Teléfono o WhatsApp <small>opcional</small><input id="telefono" type="tel" maxlength="20" autocomplete="tel"></label>
+          <label class="check"><input id="acepto" type="checkbox" required> <span>Leí y acepto el <a href="/privacidad.html" target="_blank" rel="noopener">aviso de privacidad</a></span></label>
+          <label class="trampa" aria-hidden="true">No llenar<input id="website" tabindex="-1" autocomplete="off"></label>
+        </fieldset>
+
+        <p id="aviso" class="aviso" role="alert"></p>
+        <button id="enviar" class="btn" type="submit">Calcular y recibir mi cotización</button>
+        <p class="letra">Te enviamos la confirmación por correo. La cotización en línea es una estimación y se confirma en la visita.</p>
+      </form>
+    </div>
+
+    <aside class="placa" id="placa" aria-live="polite">
+      <i></i><i></i><i></i><i></i>
+      <p class="placa-titulo">Carga térmica estimada</p>
+      <p class="placa-btu" id="placa-btu">0</p>
+      <p class="placa-unidad" id="placa-unidad">BTU/h que hay que abatir</p>
+      <dl>
+        <div><dt>Volumen</dt><dd id="placa-vol">—</dd></div>
+        <div><dt>Capacidad</dt><dd id="placa-tr">—</dd></div>
+        <div><dt>Zona</dt><dd id="placa-clima">elige tu estado</dd></div>
+      </dl>
+      <p class="placa-pie">Estimación para cotizar. La visita en sitio confirma el cálculo.</p>
+    </aside>
+  </section>
+
+  <section id="resultado" class="resultado" hidden>
+    <h2 id="res-titulo"></h2>
+    <p id="res-resumen"></p>
+    <div id="opciones" class="opciones"></div>
+    <div id="res-notas" class="notas">
+      <p><strong>Sobre la instalación.</strong> Instalar un equipo residencial ronda los $4,000 MXN e incluye 20 metros de tubería y conexión simple al tablero, con 2 años de garantía. En proyectos comerciales e industriales se revisa en sitio qué se necesita. Para confirmar el costo hacemos una visita de $1,000 MXN; si aceptas el servicio, ese importe se descuenta de tu cuenta final.</p>
+      <p>Los precios son promedios de mercado del último año para el equipo, sin instalación, y pueden variar. En proyectos comerciales e industriales el sistema final (ductos, manejadoras, bombeo) se define en la visita. Damos servicio en Ciudad de México y área metropolitana; fuera de esa zona se cotiza por separado.</p>
+    </div>
+    <p id="estado-envio" class="envio" role="status"></p>
+  </section>
+
+  <section id="equipos" class="equipos">
+    <h2>Los equipos que más instalamos</h2>
+    <p>Diez residenciales y diez industriales, elegidos por lo que más se vende en México y por su relación entre costo y beneficio. Precio promedio del último año, solo equipo. <a href="/catalogo.html">Ver el catálogo para compartir o imprimir</a></p>
+    <div class="filtros" role="group" aria-label="Filtrar equipos">
+      <button type="button" data-filtro="Todos" aria-pressed="true">Todos</button>
+      <button type="button" data-filtro="Residencial" aria-pressed="false">Residencial</button>
+      <button type="button" data-filtro="Industrial" aria-pressed="false">Industrial</button>
+    </div>
+    <div class="tabla-scroll">
+      <table id="tabla-equipos">
+        <thead><tr><th>Uso</th><th>Marca y modelo</th><th>Tipo</th><th class="num">BTU/h</th><th class="num">Precio promedio</th><th>Por qué lo elegimos</th></tr></thead>
+        <tbody><tr><td colspan="6">Cargando catálogo…</td></tr></tbody>
+      </table>
+    </div>
+  </section>
+
+  <section id="proceso" class="proceso">
+    <h2>Cómo trabajamos</h2>
+    <ol>
+      <li><h3>Cotizas en línea</h3><p>Con las medidas calculamos los BTU y te proponemos tres equipos. La cotización llega a tu correo.</p></li>
+      <li><h3>Visitamos tu espacio</h3><p>La visita cuesta $1,000 MXN. Revisamos trayectoria de tubería, tablero y desagüe. Si contratas, se abona a tu cuenta.</p></li>
+      <li><h3>Instalamos</h3><p>La instalación residencial ronda los $4,000 MXN con 20 metros de tubería y conexión simple al tablero. Tiene 2 años de garantía.</p></li>
+      <li><h3>Mantenemos</h3><p>Limpieza, recarga de gas y diagnóstico de fallas para equipos residenciales e industriales, los hayamos instalado nosotros o no.</p></li>
+    </ol>
+    <button type="button" class="btn btn-claro" data-chat>Contáctanos para más dudas</button>
+  </section>
+</main>
+
+<footer>
+  <p><strong>Juanitos Corporation</strong> Instalación, mantenimiento y reparación de aire acondicionado en Ciudad de México y área metropolitana.</p>
+  <p>Teléfono <a href="tel:+525522232425">55 22 23 24 25</a>. Lunes a sábado, de 9:00 a 19:00. <a href="/catalogo.html">Catálogo</a> <a href="/privacidad.html">Aviso de privacidad</a></p>
+</footer>
+
+<button id="chat-abrir" class="chat-abrir" type="button" aria-expanded="false" aria-controls="chat">Contáctanos para más dudas</button>
+<section id="chat" class="chat" role="dialog" aria-label="Asistente de Juanitos Corporation" hidden>
+  <header><p>Asistente de Juanitos</p><button id="chat-cerrar" type="button" aria-label="Cerrar chat">×</button></header>
+  <div id="chat-mensajes" class="chat-mensajes" aria-live="polite">
+    <p class="msg msg-assistant">Hola, soy el asistente virtual de Juanitos Corporation. Pregúntame sobre equipos, instalación, la visita en sitio o mantenimiento.</p>
+  </div>
+  <form id="chat-form"><input id="chat-texto" maxlength="800" placeholder="Escribe tu duda" aria-label="Tu mensaje" autocomplete="off"><button class="btn" type="submit">Enviar</button></form>
+</section>
+
+<script src="/app.js"></script>
+</body>
+</html>

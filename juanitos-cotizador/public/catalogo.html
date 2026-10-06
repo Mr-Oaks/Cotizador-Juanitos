@@ -1,0 +1,38 @@
+<!doctype html>
+<html lang="es-MX">
+<head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin><link href="https://fonts.googleapis.com/css2?family=Archivo:wdth,wght@62..125,400..800&display=swap" rel="stylesheet"><link rel="stylesheet" href="/styles.css">
+<title>Catálogo de equipos | Juanitos Corporation</title>
+</head>
+<body>
+<header class="barra"><a class="marca" href="/">Juanitos <span>Corporation</span></a><nav><a href="/#cotizar">Cotizar</a></nav></header>
+<main><section class="equipos">
+<h1>Catálogo de equipos</h1>
+<p>Precios promedio de mercado del último año, solo equipo. Instalación residencial desde aproximadamente $4,000 MXN con 2 años de garantía. Teléfono 55 22 23 24 25, lunes a sábado de 9:00 a 19:00.</p>
+<div class="filtros no-print">
+  <button type="button" data-f="" aria-pressed="true">Todos</button>
+  <button type="button" data-f="Residencial" aria-pressed="false">Residencial</button>
+  <button type="button" data-f="Industrial" aria-pressed="false">Industrial</button>
+  <button type="button" id="pdf">Guardar como PDF</button>
+  <button type="button" id="copiar">Copiar enlace</button>
+</div>
+<div class="tabla-scroll"><table id="t"><thead><tr><th>Uso</th><th>Marca y modelo</th><th>Tipo</th><th class="num">BTU/h</th><th class="num">Precio promedio</th><th>Notas</th></tr></thead><tbody><tr><td colspan="6">Cargando catálogo…</td></tr></tbody></table></div>
+</section></main>
+<script>
+// /catalogo.html?segmento=Residencial abre el catálogo ya filtrado: útil para mandarlo por WhatsApp.
+const esc = (s) => String(s ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+const pesos = (n) => new Intl.NumberFormat('es-MX', { style: 'currency', currency: 'MXN', maximumFractionDigits: 0 }).format(n);
+let equipos = [], filtro = new URLSearchParams(location.search).get('segmento') || '';
+function pintar() {
+  document.querySelectorAll('[data-f]').forEach((b) => b.setAttribute('aria-pressed', b.dataset.f === filtro));
+  document.querySelector('#t tbody').innerHTML = equipos.filter((e) => !filtro || e.segmento === filtro).map((e) =>
+    '<tr><td><span class="tag tag-' + (e.segmento === 'Industrial' ? 'ind' : 'res') + '">' + esc(e.segmento) + '</span></td><td><strong>' + esc(e.marca) + '</strong><br>' + esc(e.modelo) +
+    '</td><td>' + esc(e.tipo) + '</td><td class="num">' + Number(e.capacidad_btu).toLocaleString('es-MX') + '<br><small>' + (e.capacidad_btu / 12000).toFixed(1) + ' TR</small></td><td class="num">' +
+    pesos(e.precio_promedio_mxn) + '<br><small>' + pesos(e.precio_min_mxn) + ' a ' + pesos(e.precio_max_mxn) + '</small></td><td>' + esc(e.notas) + '</td></tr>').join('');
+}
+document.querySelectorAll('[data-f]').forEach((b) => b.onclick = () => { filtro = b.dataset.f; history.replaceState(null, '', filtro ? '?segmento=' + filtro : location.pathname); pintar(); });
+document.getElementById('pdf').onclick = () => window.print();
+document.getElementById('copiar').onclick = (e) => navigator.clipboard.writeText(location.href).then(() => { e.target.textContent = 'Enlace copiado'; });
+fetch('/api/equipos').then((r) => r.json()).then((d) => { equipos = d.equipos || []; pintar(); });
+</script>
+</body>
+</html>

@@ -1,0 +1,6 @@
+{
+  "functions": {
+    "api/chat.js": { "includeFiles": "wiki/**", "maxDuration": 30 },
+    "api/lead.js": { "maxDuration": 30 }
+  }
+}
